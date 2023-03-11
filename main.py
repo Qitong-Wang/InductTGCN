@@ -11,7 +11,7 @@ import torch.optim as optim
 import scipy.sparse as sp
 import torch.nn as nn
 from sklearn.metrics import classification_report
-
+from t_initialemb import get_pretrain_emb
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='R8', help='Dataset string: R8, R52, OH, 20NGnew, MR')
 parser.add_argument('--train_size',  type=float, default=1, help='If it is larger than 1, it means the number of training samples. If it is from 0 to 1, it means the proportion of the original training set.')
@@ -19,14 +19,14 @@ parser.add_argument('--test_size',  type=float, default=1, help='If it is larger
 parser.add_argument('--remove_limit', type=int, default=2, help='Remove the words showing fewer than 2 times')
 parser.add_argument('--use_gpu', type=int, default=1, help='Whether to use GPU, 1 means True and 0 means False. If True and no GPU available, will use CPU instead.')
 parser.add_argument('--shuffle_seed',type = int, default = None, help="If not specified, train/val is shuffled differently in each experiment")
-parser.add_argument('--hidden_dim',type = int, default = 200, help="The hidden dimension of GCN model")
+parser.add_argument('--hidden_dim',type = int, default = 300, help="The hidden dimension of GCN model")
 parser.add_argument('--dropout',type = float, default = 0.5, help="The dropout rate of GCN model")
 parser.add_argument('--learning_rate',type = float, default = 0.02, help="Learning rate")
 parser.add_argument('--weight_decay',type = float, default = 0, help="Weight decay, normally it is 0")
 parser.add_argument('--early_stopping',type = int, default = 10, help="Number of epochs of early stopping.")
-parser.add_argument('--epochs',type = int, default = 200, help="Number of maximum epochs")
+parser.add_argument('--epochs',type = int, default = 300, help="Number of maximum epochs")
 parser.add_argument('--multiple_times',type = int, default = 10, help="Running multiple experiments, each time the train/val split is different")
-parser.add_argument('--easy_copy',type = int, default = 1, help="For easy copy of the experiment results. 1 means True and 0 means False.")
+parser.add_argument('--easy_copy',type = int, default = 0, help="For easy copy of the experiment results. 1 means True and 0 means False.")
 
 args = parser.parse_args()
 
@@ -60,13 +60,15 @@ criterion = nn.CrossEntropyLoss()
 
 # Generate Test input
 test_emb, tokenized_test_edge = get_test_emb(tokenize_sentences[train_size:], word_id_map, vocab_length, word_doc_freq, word_list, train_size)
-
+emb = get_pretrain_emb(word_id_map,args.hidden_dim)
+#emb = None
 if not args.easy_copy:
     # Generate train/val dataset
     idx_train, idx_val = generate_train_val(args, train_size)
 
+
     # Genrate Model
-    model = GCN(nfeat=vocab_length, nhid=args.hidden_dim, nclass=num_class, dropout=args.dropout).to(device)
+    model = GCN(nfeat=vocab_length, nhid=args.hidden_dim, nclass=num_class, dropout=args.dropout,pretrain=emb).to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
     # Train the model
@@ -84,7 +86,7 @@ if args.multiple_times:
     for t in range(args.multiple_times):
         if not args.easy_copy:
             print("Round",t+1)
-        model = GCN(nfeat=vocab_length, nhid=args.hidden_dim, nclass=num_class, dropout=args.dropout).to(device)
+        model = GCN(nfeat=vocab_length, nhid=args.hidden_dim, nclass=num_class, dropout=args.dropout,pretrain=emb).to(device)
         optimizer = optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
         idx_train, idx_val = generate_train_val(args, train_size)
         train_model(args, model, optimizer, criterion, features, adj, labels, idx_train, idx_val, show_result=False)

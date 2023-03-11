@@ -9,11 +9,14 @@ import torch.nn.functional as F
 
 class GraphConvolution(Module):
 
-    def __init__(self, in_features, out_features,  drop_out = 0, activation=None, bias=True):
+    def __init__(self, in_features, out_features,  drop_out = 0, activation=None, bias=True, pretrain=None):
         super(GraphConvolution, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = Parameter(torch.FloatTensor(in_features, out_features))
+        if pretrain != None:
+            self.weight = Parameter(pretrain)
+        else:
+            self.weight = Parameter(torch.FloatTensor(in_features, out_features))
         if bias:
             self.bias = Parameter(torch.zeros(1, out_features))
         else:
@@ -54,10 +57,10 @@ class GraphConvolution(Module):
 
 
 class GCN(nn.Module):
-    def __init__(self, nfeat, nhid, nclass, dropout):
+    def __init__(self, nfeat, nhid, nclass, dropout,pretrain=None):
         super(GCN, self).__init__()
 
-        self.gc1 = GraphConvolution(nfeat, nhid, dropout, activation = nn.ReLU())
+        self.gc1 = GraphConvolution(nfeat, nhid, dropout, activation = nn.ReLU(),pretrain=pretrain)
         self.gc2 = GraphConvolution(nhid, nclass, dropout)
 
     def forward(self, x, adj):
